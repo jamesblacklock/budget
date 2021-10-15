@@ -1,0 +1,64 @@
+import { ScrollView } from "sixtyfps_widgets.60";
+
+export TableCell := Rectangle {
+    property<string> text;
+
+    Text {
+        preferred-width: 0;
+        width: parent.width - 12px;
+        x: 12px;
+        vertical-alignment: center;
+        height: 100%;
+        text: root.text;
+        overflow: elide;
+    }
+}
+
+export TableRow := Rectangle {
+    property<int> n: 1;
+    height: 30px;
+    background: {
+        if (mod(n, 2) == 0) {
+            #eee
+        } else {
+            #fff
+        }
+    }
+
+    HorizontalLayout {
+        @children
+    }
+}
+
+export Table := Rectangle {
+    property<[string]> column-names: [];
+    property<int> row-count: 0;
+    property<length> row-height: 30px;
+    property viewport-width <=> scroll-view.viewport-width;
+    property viewport-height <=> scroll-view.viewport-height;
+    property viewport-x <=> scroll-view.viewport-x;
+    property viewport-y <=> scroll-view.viewport-y;
+
+    // header
+    Rectangle {
+        height: 30px;
+        width: scroll-view.visible-width;
+        HorizontalLayout {
+            for name in column-names: TableCell {
+                text: name;
+            }
+        }
+    }
+
+    // body
+    scroll-view := ScrollView {
+        y: 30px;
+        height: parent.height - 30px;
+        viewport-width: 0;
+        viewport-height: row-height * row-count;
+        VerticalLayout {
+            width: parent.visible-width;
+            @children
+        }
+    }
+}

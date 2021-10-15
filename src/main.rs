@@ -1,20 +1,13 @@
 #![feature(try_blocks)]
 
-pub(crate) mod entities;
-pub(crate) mod api;
-
 use std::{
 	path::Path,
 	fs::File,
 	io,
-	io::prelude::*,
 	thread,
 	sync::mpsc,
-	sync::mpsc::Sender,
 	sync::mpsc::Receiver,
 };
-
-use regex::Regex;
 
 use async_std::task;
 
@@ -22,7 +15,6 @@ use sea_query::{
 	TableCreateStatement,
 };
 use sea_orm::{
-	ModelTrait,
 	EntityTrait,
 	QueryFilter,
 	ColumnTrait,
@@ -30,13 +22,6 @@ use sea_orm::{
 	DatabaseConnection,
 	DbErr,
 	Schema,
-};
-
-sixtyfps::include_modules!();
-use sixtyfps::{
-	VecModel,
-	SharedString,
-	Weak,
 };
 
 #[derive(Debug)]
@@ -55,7 +40,21 @@ pub enum Message {
 	Terminate,
 }
 
-fn main() /*-> Result<(), Error>*/ {
+// fn main() {
+// 	sixtyfps_build::compile("src/ui/app.60").unwrap();
+// }
+
+sixtyfps::include_modules!();
+use sixtyfps::{
+	VecModel,
+	SharedString,
+	Weak,
+};
+
+pub(crate) mod entities;
+pub(crate) mod api;
+
+fn main() {
 	let (sender, receiver) = mpsc::channel::<Message>();
 	
 	let component = App::new();

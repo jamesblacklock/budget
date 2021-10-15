@@ -142,6 +142,8 @@ pub mod transaction {
 		ActiveModelTrait,
 		Set,
 		QueryFilter,
+		QueryOrder,
+		Order,
 		ColumnTrait,
 	};
 	use crate::Error;
@@ -180,7 +182,7 @@ pub mod transaction {
 	}
 
 	pub async fn list(account_id: Option<i32>, db: &DatabaseConnection) -> Result<Vec<model::Model>, Error> {
-		let mut query = model::Entity::find();
+		let mut query = model::Entity::find().order_by(model::Column::Timestamp, Order::Desc);
 		if let Some(account_id) = account_id {
 			query = query.filter(model::Column::AccountId.eq(account_id));
 		}

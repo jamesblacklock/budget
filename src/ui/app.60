@@ -9,6 +9,7 @@ export App := Window {
     property<[string]> account-names: [];
     property<[string]> categories: [];
     property<string> show-view: "transactions";
+    property<int> selected-account: -1;
 
     callback add-tx(string, string, string, string, float);
     callback add-category(string);
@@ -79,6 +80,7 @@ export App := Window {
                         clicked => {
                             root.show-transactions();
                             root.account-selected(-1);
+                            root.selected-account = -1;
                         }
                     }
                 }
@@ -89,6 +91,7 @@ export App := Window {
                 account-selected(account-id) => {
                     root.show-transactions();
                     root.account-selected(account-id);
+                    root.selected-account = account-id;
                 }
                 add-account-button-clicked() => {
                     account-dialog.modal-active = true;
@@ -97,7 +100,7 @@ export App := Window {
         }
 
         Rectangle {
-            horizontal-stretch: 7;
+            horizontal-stretch: 14;
             if root.show-view == "budget": Budget {
                 categories: root.categories;
 
@@ -112,6 +115,7 @@ export App := Window {
                 categories: root.categories;
                 account-names: root.account-names;
                 transactions: root.transactions;
+                selected-account: root.selected-account;
 
                 add-tx(account-name, payee-name, category-name, memo, amount) => {
                     root.add-tx(account-name, payee-name, category-name, memo, amount);

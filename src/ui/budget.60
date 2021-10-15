@@ -6,10 +6,14 @@ export Budget := Rectangle {
     callback add-category(string);
 
     VerticalLayout {
+        padding: 12px;
+        spacing: 6px;
         HorizontalLayout {
+            alignment: start;
             spacing: 4px;
             new-category := LineEdit {
                 placeholder-text: "Category";
+                width: 200px;
             }
             Button {
                 text: "Add Category";

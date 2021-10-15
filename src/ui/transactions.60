@@ -1,4 +1,5 @@
 import { ListView, ComboBox, LineEdit, Button } from "sixtyfps_widgets.60";
+import { Table, TableRow, TableCell } from "table.60";
 
 export struct TransactionView := {
     id: int,
@@ -10,27 +11,19 @@ export struct TransactionView := {
     amount: float,
 }
 
-TableCell := Rectangle {
-    property<string> text;
-
-    Text {
-        preferred-width: 0;
-        width: parent.width - 12px;
-        x: 12px;
-        vertical-alignment: center;
-        height: 100%;
-        text: root.text;
-        overflow: elide;
-    }
-}
-
 export Transactions := Rectangle {
     property<[TransactionView]> transactions: [];
-    property<bool> account-selected: false;
+    property<int> selected-account: -1;
     property<[string]> account-names: [];
     property<[string]> categories: [];
 
+    callback select-account(int);
     callback add-tx(string, string, string, string, float);
+
+    select-account(account-id) => {
+        table.viewport-y = 0;
+        selected-account = account-id;
+    }
 
     min-width: 60px;
     min-height: 60px;
@@ -89,81 +82,40 @@ export Transactions := Rectangle {
             }
         }
 
-        table := Rectangle {
-            Rectangle {
-                height: 30px;
-                width: list-view.visible-width;
-                HorizontalLayout {
-                    TableCell {
-                        text: "Date";
-                    }
-                    if !account-selected: TableCell {
-                        text: "Account";
-                    }
-                    TableCell {
-                        text: "Payee";
-                    }
-                    TableCell {
-                        text: "Category";
-                    }
-                    TableCell {
-                        text: "Memo";
-                    }
-                    TableCell {
-                        text: "Outflow";
-                    }
-                    TableCell {
-                        text: "Inflow";
-                    }
+        table := Table {
+            column-names: { 
+                if (selected-account < 0) {
+                    ["Date", "Account", "Payee", "Category", "Memo", "Outflow", "Inflow"]
+                } else {
+                    ["Date", "Payee", "Category", "Memo", "Outflow", "Inflow"]
                 }
             }
-
-            list-view := ListView {
-                y: 30px;
-                height: parent.height - 30px;
-                for data[index] in transactions : Rectangle {
-                    height: 30px;
-                
-                    if (mod(index, 2) == 0): Rectangle {
-                        background: #eee;
-                        width: 100%;
-                        height: 100%;
-                    }
-                    if (mod(index, 2) == 1): Rectangle {
-                        background: #fff;
-                        width: 100%;
-                        height: 100%;
-                    }
-
-                    HorizontalLayout {
-                        TableCell {
-                            text: data.timestamp;
-                        }
-                        if !account-selected: TableCell {
-                            text: data.account;
-                        }
-                        TableCell {
-                            text: data.payee;
-                        }
-                        TableCell {
-                            text: data.category;
-                        }
-                        TableCell {
-                            text: data.memo;
-                        }
-                        if (data.amount <= 0): TableCell {
-                            text: -data.amount;
-                        }
-                        if (data.amount <= 0): TableCell {
-                            text: "";
-                        }
-                        if (data.amount > 0): TableCell {
-                            text: "";
-                        }
-                        if (data.amount > 0): TableCell {
-                            text: data.amount;
-                        }
-                    }
+            row-count: transactions.length;
+            for data[index] in transactions: TableRow {
+                n: index;
+                TableCell {
+                    text: data.timestamp;
+                }
+                if selected-account < 0: TableCell {
+                    text: data.account;
+                }
+                TableCell {
+                    text: data.payee;
+                }
+                TableCell {
+                    text: data.category;
+                }
+                TableCell {
+                    text: data.memo;
+                }
+                if (data.amount <= 0): TableCell {
+                    text: -data.amount;
+                }
+                TableCell {
+                    text: "";
+                }
+                if (data.amount > 0): TableCell {
+                    text: data.amount;
                 }
             }
         }
