@@ -5,7 +5,6 @@ version = "0.1.0"
 edition = "2018"
 
 # for sixtyfps
-build = "build.rs"
 resolver = "2" # avoid dependency conflicts on some platforms
 
 [dependencies]
@@ -16,7 +15,10 @@ async-std = "^1.10"
 sea-query = "^0"
 sea-orm = { version = "^0", features = [
 	"sqlx-sqlite", "runtime-async-std-rustls", "macros" ], default-features = false }
-sixtyfps = { version = "0.1.3", features = ["backend-qt"] }
+# sixtyfps = { path = "../sixtyfps/api/sixtyfps-rs", features = ["backend-qt"] }
+sixtyfps = { git = "https://github.com/jamesblacklock/sixtyfps", branch = "array-length", features = ["backend-qt"] }
+# sixtyfps-build = { path = "../sixtyfps/api/sixtyfps-rs/sixtyfps-build" }
 
 [build-dependencies]
-sixtyfps-build = "0.1.3"
+# sixtyfps-build = { path = "../sixtyfps/api/sixtyfps-rs/sixtyfps-build" }
+sixtyfps-build = { git = "https://github.com/jamesblacklock/sixtyfps", branch = "array-length" }
