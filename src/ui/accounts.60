@@ -1,0 +1,165 @@
+import { ListView, Button, StandardButton, LineEdit, CheckBox } from "sixtyfps_widgets.60";
+
+export struct AccountView := {
+    name: string,
+    balance: float,
+    id: int,
+}
+
+ModalDialog := Rectangle {
+    property<string> title;
+    property<string> ok-text: "Ok";
+    property<string> cancel-text: "Cancel";
+
+    property<bool> modal-active: false;
+
+    callback show();
+    callback hide();
+    callback ok-clicked();
+
+    show => {
+        modal-active = true;
+    }
+
+    hide => {
+        modal-active = false;
+    }
+
+    x: 0; y: 0; z: 999;
+    background: #00000088;
+
+    TouchArea {
+        visible: modal-active;
+    }
+
+    dialog := HorizontalLayout {
+        visible: root.opacity > 0;
+        alignment: center;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                x: -20px;
+                background: #eee;
+                border-radius: 0.5cm;
+
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 16px;
+                    Text {
+                        font-size: 16px;
+                        text: title;
+                    }
+                    
+                    Rectangle {
+                        @children
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        Button {
+                            text: cancel-text;
+                            clicked => {
+                                modal-active = false;
+                            }
+                        }
+                        Button {
+                            text: ok-text;
+                            clicked => {
+                                modal-active = false;
+                                root.ok-clicked();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    states [
+        active when modal-active: {
+            opacity: 1;
+            dialog.y: 0;
+        }
+        inactive when !modal-active: {
+            opacity: 0;
+            dialog.y: -self.height / 4;
+        }
+    ]
+
+    transitions [
+        in active: {
+            animate opacity, dialog.y { duration: 200ms; easing: ease; }
+        }
+        out active: {
+            animate opacity, dialog.y { duration: 200ms; easing: ease; }
+        }
+    ]
+}
+
+export AccountDialog := ModalDialog {
+    callback add-account(string, float, bool);
+    
+    title: "Add Account";
+    ok-text: "Add Account";
+    VerticalLayout {
+        spacing: 6px;
+        new-account-name := LineEdit {
+            placeholder-text: "Account Name";
+            width: 400px;
+        }
+        new-account-balance := LineEdit {
+            placeholder-text: "Account Balance";
+            width: 400px;
+        }
+        is-tracking-account := CheckBox {
+            horizontal-stretch: 0;
+            text: "Tracking";
+            checked: false;
+        }
+    }
+    
+    ok-clicked => {
+        root.add-account(
+            new-account-name.text,
+            new-account-balance.text.to-float() * 100,
+            is-tracking-account.checked);
+        new-account-name.text = "";
+        new-account-balance.text = "";
+        is-tracking-account.checked = false;
+    }
+}
+
+export Accounts := VerticalLayout {
+    property<[AccountView]> accounts: [];
+    callback account-selected(int);
+    callback add-account-button-clicked();
+
+    ListView {
+        for account in accounts: Rectangle {
+            TouchArea {
+                clicked => {
+                    root.account-selected(account.id);
+                }
+            }
+            HorizontalLayout {
+                padding: 6px;
+                Text {
+                    horizontal-stretch: 0;
+                    preferred-width: parent.width * 0.8333;
+                    text: account.name;
+                    overflow: elide;
+                }
+                Text {
+                    horizontal-stretch: 1;
+                    horizontal-alignment: right;
+                    text: account.balance;
+                }
+            }
+        }
+    }
+
+    Button {
+        text: "Add Account";
+        clicked => { root.add-account-button-clicked(); }
+    }
+}

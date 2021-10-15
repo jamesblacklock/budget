@@ -1,0 +1,29 @@
+import { ListView, Button, LineEdit } from "sixtyfps_widgets.60";
+
+export Budget := Rectangle {
+    property<[string]> categories: [];
+
+    callback add-category(string);
+
+    VerticalLayout {
+        HorizontalLayout {
+            spacing: 4px;
+            new-category := LineEdit {
+                placeholder-text: "Category";
+            }
+            Button {
+                text: "Add Category";
+                clicked => {
+                    root.add-category(new-category.text);
+                    new-category.text = "";
+                }
+            }
+        }
+        
+        ListView {
+            for category in categories: Text {
+                text: category;
+            }
+        }
+    }
+}
