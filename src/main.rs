@@ -2,7 +2,6 @@
 
 pub(crate) mod entities;
 pub(crate) mod api;
-pub(crate) mod view;
 
 use std::{
 	path::Path,
