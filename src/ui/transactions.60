@@ -109,13 +109,15 @@ export Transactions := Rectangle {
                     text: data.memo;
                 }
                 if (data.amount <= 0): TableCell {
-                    text: -data.amount;
+                    text: "$" + -data.amount;
+                    horizontal-alignment: right;
                 }
                 TableCell {
                     text: "";
                 }
                 if (data.amount > 0): TableCell {
-                    text: data.amount;
+                    text: "$" + data.amount;
+                    horizontal-alignment: right;
                 }
             }
         }

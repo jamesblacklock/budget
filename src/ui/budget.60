@@ -1,4 +1,5 @@
 import { ListView, Button, LineEdit } from "sixtyfps_widgets.60";
+import { Table, TableRow, TableCell } from "table.60";
 
 export Budget := Rectangle {
     property<[string]> categories: [];
@@ -24,9 +25,27 @@ export Budget := Rectangle {
             }
         }
         
-        ListView {
-            for category in categories: Text {
-                text: category;
+        Table {
+            column-names: ["Category", "Assigned", "Activity", "Available"];
+            row-count: categories.length;
+
+            for category[index] in categories: TableRow {
+                n: index;
+                TableCell {
+                    text: category;
+                }
+                TableCell {
+                    text: "$0.00";
+                    horizontal-alignment: right;
+                }
+                TableCell {
+                    text: "$0.00";
+                    horizontal-alignment: right;
+                }
+                TableCell {
+                    text: "$0.00";
+                    horizontal-alignment: right;
+                }
             }
         }
     }
