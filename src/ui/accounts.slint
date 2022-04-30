@@ -1,4 +1,5 @@
-import { ListView, Button, StandardButton, LineEdit, CheckBox } from "sixtyfps_widgets.60";
+import { ListView, Button, StandardButton, LineEdit, CheckBox } from "std-widgets.slint";
+import { SidebarButton } from "./sidebar.slint";
 
 export struct AccountView := {
     name: string,
@@ -131,35 +132,48 @@ export AccountDialog := ModalDialog {
 
 export Accounts := VerticalLayout {
     property<[AccountView]> accounts: [];
+    property<int> selected-account: -1;
+
     callback account-selected(int);
     callback add-account-button-clicked();
 
+    spacing: 8px;
+
     ListView {
         for account in accounts: Rectangle {
-            TouchArea {
+            SidebarButton {
+                active: root.selected-account == account.id;
+                HorizontalLayout {
+                    padding: 6px;
+                    Text {
+                        horizontal-stretch: 0;
+                        preferred-width: parent.width * 0.8333;
+                        text: account.name;
+                        overflow: elide;
+                        color: white;
+                    }
+                    Text {
+                        horizontal-stretch: 1;
+                        horizontal-alignment: right;
+                        text: "\{(account.balance < 0 ? "-$" : "$")}\{floor(abs(account.balance))}.\{mod(floor(abs(account.balance)*10), 10)}\{mod(round(abs(account.balance)*100), 10)}";
+                        color: white;
+                    }
+                }
+
                 clicked => {
                     root.account-selected(account.id);
-                }
-            }
-            HorizontalLayout {
-                padding: 6px;
-                Text {
-                    horizontal-stretch: 0;
-                    preferred-width: parent.width * 0.8333;
-                    text: account.name;
-                    overflow: elide;
-                }
-                Text {
-                    horizontal-stretch: 1;
-                    horizontal-alignment: right;
-                    text: account.balance;
                 }
             }
         }
     }
 
-    Button {
-        text: "Add Account";
-        clicked => { root.add-account-button-clicked(); }
+    HorizontalLayout {
+        alignment: center;
+        SidebarButton {
+            text: "Add Account";
+            horizontal-alignment: center;
+            width: 120px;
+            clicked => { root.add-account-button-clicked(); }
+        }
     }
 }

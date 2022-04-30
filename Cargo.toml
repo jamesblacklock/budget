@@ -2,23 +2,16 @@
 name = "budget"
 author = "James Blacklock <jamesblacklock@protonmail.com>"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # for sixtyfps
-resolver = "2" # avoid dependency conflicts on some platforms
+# resolver = "2" # avoid dependency conflicts on some platforms
 
 [dependencies]
-regex = "1"
-smart-default = "^0.6"
 chrono = "^0.4"
-async-std = "^1.10"
-sea-query = "^0"
-sea-orm = { version = "^0", features = [
-	"sqlx-sqlite", "runtime-async-std-rustls", "macros" ], default-features = false }
-# sixtyfps = { path = "../sixtyfps/api/sixtyfps-rs", features = ["backend-qt"] }
-sixtyfps = { git = "https://github.com/jamesblacklock/sixtyfps", branch = "array-length", features = ["backend-qt"] }
-# sixtyfps-build = { path = "../sixtyfps/api/sixtyfps-rs/sixtyfps-build" }
+dotenv = "0.15.0"
+diesel = { version = "1.4.4", features = ["sqlite", "chrono"] }
+slint = "0.2.1"
 
 [build-dependencies]
-# sixtyfps-build = { path = "../sixtyfps/api/sixtyfps-rs/sixtyfps-build" }
-sixtyfps-build = { git = "https://github.com/jamesblacklock/sixtyfps", branch = "array-length" }
+slint-build = "0.2.1"

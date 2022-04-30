@@ -1,0 +1,38 @@
+export SidebarButton := Rectangle {
+    property<string> text: "";
+    property<length> font-size: 12px;
+    property<TextHorizontalAlignment> horizontal-alignment: left;
+    property<bool> active: false;
+    
+    callback clicked;
+    
+    border-radius: 4px;
+    height: font-size * 2.25;
+    background: {
+        if (active || touch-area.pressed) {
+            #00537c
+        } else if (touch-area.has-hover) {
+            #209bcc
+        } else {
+            transparent
+        }
+    }
+
+    Text {
+        height: 100%;
+        width:  parent.width - font-size;
+        x: font-size/2;
+        font-size: root.font-size;
+        text: root.text;
+        overflow: elide;
+        vertical-alignment: TextVerticalAlignment.center;
+        horizontal-alignment: root.horizontal-alignment;
+        color: white;
+    }
+    
+    touch-area := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}

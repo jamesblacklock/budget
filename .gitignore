@@ -1,6 +1,5 @@
-/target
+target
 .vscode/launch.json
+dump/app.rs
 dev.db
-.gitignore
-dev.db-shm
-dev.db-wal
+.DS_Store

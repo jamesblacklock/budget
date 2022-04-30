@@ -1,58 +1,80 @@
 #![feature(try_blocks)]
 
+#[macro_use]
+extern crate diesel;
+extern crate dotenv;
+
 use std::{
-	path::Path,
-	fs::File,
 	io,
 	thread,
 	sync::mpsc,
 	sync::mpsc::Receiver,
 };
 
-use async_std::task;
+pub mod schema;
+pub mod models;
 
-use sea_query::{
-	TableCreateStatement,
-};
-use sea_orm::{
-	EntityTrait,
-	QueryFilter,
-	ColumnTrait,
-	Database,
-	DatabaseConnection,
-	DbErr,
-	Schema,
-};
+joinable!(schema::txs -> schema::accounts (account_id));
+joinable!(schema::txs -> schema::payees (payee_id));
+joinable!(schema::txs -> schema::categories (category_id));
+
+
+use models::*;
+use diesel::prelude::*;
+use chrono::prelude::*;
 
 #[derive(Debug)]
 pub enum Error {
-	DbError(DbErr),
+	DbError(diesel::result::Error),
 	IOError(io::Error),
 	InternalError(String),
 	ParseIntError(std::num::ParseIntError)
 }
 
 pub enum Message {
-	AddAccount(String, i64, bool),
+	AddAccount(String, i32, bool),
 	AddCategory(String),
-	AddTransaction(String, String, String, String, i64),
+	AddTransaction(String, String, String, String, i32),
 	AccountSelected(i32),
 	Terminate,
 }
 
 // fn main() {
-// 	sixtyfps_build::compile("src/ui/app.60").unwrap();
+// 	use slint_interpreter::{ComponentDefinition, ComponentCompiler};
+
+// 	let mut compiler = ComponentCompiler::default();
+// 	let definition = task::block_on(compiler.build_from_path("src/ui/app.slint"));
+// 	slint_interpreter::print_diagnostics(&compiler.diagnostics());
+// 	if let Some(definition) = definition {
+// 		let instance = definition.create();
+// 		instance.run();
+// 	}
 // }
 
-sixtyfps::include_modules!();
-use sixtyfps::{
+// fn main() {
+// 	slint_build::compile("src/ui/app.slint").unwrap();
+// }
+
+slint::include_modules!();
+use slint::{
 	VecModel,
 	SharedString,
 	Weak,
 };
 
-pub(crate) mod entities;
-pub(crate) mod api;
+use diesel::sqlite::SqliteConnection;
+use dotenv::dotenv;
+use std::env;
+
+pub fn establish_connection() -> SqliteConnection {
+    dotenv().ok();
+
+    let database_url = env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+	SqliteConnection::establish(&database_url)
+        .expect(&format!("Error connecting to {}", database_url))
+}
+
 
 fn main() {
 	let (sender, receiver) = mpsc::channel::<Message>();
@@ -63,7 +85,7 @@ fn main() {
 	component.on_add_account(move |name, balance, is_tracking_account| {
 		sender_clone.send(Message::AddAccount(
 			name.as_str().to_owned(),
-			balance as i64,
+			balance as i32,
 			is_tracking_account,
 		)).unwrap();
 	});
@@ -78,7 +100,7 @@ fn main() {
 			payee_name.as_str().to_owned(),
 			category_name.as_str().to_owned(),
 			memo.as_str().to_owned(),
-			amount as i64,
+			amount as i32,
 		)).unwrap();
 	});
 	let sender_clone = sender.clone();
@@ -87,15 +109,15 @@ fn main() {
 	});
 
 	let component_weak = component.as_weak();
-	thread::spawn(move || {
-		task::block_on(worker_thread(component_weak, receiver))
-	});
+	thread::spawn(move || worker_thread(component_weak, receiver));
 
 	component.run();
 }
 
-async fn load_accounts(component: Weak<App>, db: &DatabaseConnection) -> Result<(), Error> {
-	let accounts = api::account::list(&db).await?;
+fn load_accounts(component: Weak<App>, conn: &SqliteConnection) -> Result<(), Error> {
+	let accounts = schema::accounts::table
+		.load::<Account>(conn).map_err(|e| Error::DbError(e))?;
+	
 	component.upgrade_in_event_loop(move |component| {
 		let mut account_views = Vec::new();
 		for account in accounts.iter() {
@@ -109,119 +131,181 @@ async fn load_accounts(component: Weak<App>, db: &DatabaseConnection) -> Result<
 	Ok(())
 }
 
-async fn load_categories(component: Weak<App>, db: &DatabaseConnection) -> Result<(), Error> {
-	let categories = api::category::list(&db).await?;
+fn load_categories(component: Weak<App>, conn: &SqliteConnection) -> Result<(), Error> {
+	let categories = schema::categories::table
+		.load::<Category>(conn).map_err(|e| Error::DbError(e))?;
+	
 	component.upgrade_in_event_loop(move |component| {
-		component.set_categories(VecModel::from_slice(&categories.iter()
-			.map(|category| SharedString::from(&category.name)).collect::<Vec<_>>()));
+		let all_categories = categories.iter()
+			.map(|category| SharedString::from(&category.name)).collect::<Vec<_>>();
+		component.set_categories(VecModel::from_slice(&all_categories));
+		component.set_assignable_categories(VecModel::from_slice(&all_categories[1..]));
 	});
 
 	Ok(())
 }
 
-async fn load_transactions(component: Weak<App>, account_id: Option<i32>, db: &DatabaseConnection) -> Result<(), Error> {
-	let transactions = api::transaction::list(account_id, &db).await?;
-	let mut transaction_views = Vec::new();
-	for transaction in transactions {
-		transaction_views.push(transaction.create_view(&db).await?);
-	}
-	component.upgrade_in_event_loop(move |component| {
-		component.set_transactions(VecModel::from_slice(transaction_views.as_slice()));
-	});
-
-	Ok(())
-}
-
-async fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) -> Result<(), Error> {
-	let db_path = Path::new("./dev.db");
-	let create_schema = if db_path.exists() {
-		false
+fn load_transactions(component: Weak<App>, account_id: Option<i32>, conn: &SqliteConnection) -> Result<(), Error> {
+	let query = schema::txs::table
+		.left_join(schema::accounts::table)
+		.left_join(schema::categories::table)
+		.left_join(schema::payees::table);
+	
+	let txs = if let Some(account_id) = account_id {
+		query
+			.filter(schema::txs::account_id.eq(account_id))
+			.load::<(Tx, Option<Account>, Option<Category>, Option<Payee>)>(conn).map_err(|e| Error::DbError(e))?
 	} else {
-		File::create(db_path).map_err(Error::IOError)?;
-		true
+		query
+			.load::<(Tx, Option<Account>, Option<Category>, Option<Payee>)>(conn).map_err(|e| Error::DbError(e))?
 	};
 
-	let db: DatabaseConnection = Database::connect("sqlite://dev.db").await.map_err(Error::DbError)?;
+	let tx_views: Vec<_> = txs.into_iter()
+		.map(|(tx, account, category, payee)| tx.create_view(account, category, payee))
+		.collect();
 
-	if create_schema {
-		let stmt: TableCreateStatement = Schema::create_table_from_entity(entities::account::Entity);
-		db.execute(db.get_database_backend().build(&stmt)).await.map_err(Error::DbError)?;
-		
-		let stmt: TableCreateStatement = Schema::create_table_from_entity(entities::transaction::Entity);
-		db.execute(db.get_database_backend().build(&stmt)).await.map_err(Error::DbError)?;
-		
-		let stmt: TableCreateStatement = Schema::create_table_from_entity(entities::category::Entity);
-		db.execute(db.get_database_backend().build(&stmt)).await.map_err(Error::DbError)?;
-		
-		let stmt: TableCreateStatement = Schema::create_table_from_entity(entities::payee::Entity);
-		db.execute(db.get_database_backend().build(&stmt)).await.map_err(Error::DbError)?;
-	}
+	component.upgrade_in_event_loop(move |component| {
+		component.set_transactions(VecModel::from_slice(tx_views.as_slice()));
+	});
+
+	Ok(())
+}
+
+fn load_budget(component: Weak<App>, month: u32, year: i32, _conn: &SqliteConnection) -> Result<(), Error> {
+	component.upgrade_in_event_loop(move |component| {
+		component.set_current_year(year);
+		component.set_current_month(month as i32);
+	});
+
+	Ok(())
+}
+
+fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) -> Result<(), Error> {
+	let conn = establish_connection();
 	
-	load_accounts(component.clone(), &db).await?;
-	load_categories(component.clone(), &db).await?;
-	load_transactions(component.clone(), None, &db).await?;
+	load_accounts(component.clone(), &conn)?;
+	load_categories(component.clone(), &conn)?;
+	load_transactions(component.clone(), None, &conn)?;
+	let now = Local::now();
+	load_budget(component.clone(), now.month0(), now.year(), &conn)?;
 
 	let mut selected_account = None;
 	loop {
-		let message = receiver.recv().unwrap();
+		let message = match receiver.recv() {
+			Ok(message) => message,
+			Err(_err) => Message::Terminate,
+		};
+
 		let result: Result<(), Error> = try {
 			match message {
 				Message::AddAccount(name, balance, is_tracking_account) => {
-					let account = entities::account::Model {
-						name,
+					let account = NewAccount {
+						name: &name,
 						is_tracking_account,
 						balance,
-						..Default::default()
 					};
-					api::account::add(account, &db).await?;
-					load_accounts(component.clone(), &db).await?;
+
+					// 
+					diesel::insert_into(schema::accounts::table)
+						.values(&account)
+						.execute(&conn)
+						.map_err(|e| Error::DbError(e))?;
+					
+					let account = schema::accounts::table
+						.filter(schema::accounts::name.eq(name))
+						.first::<Account>(&conn)
+						.map_err(|e| Error::DbError(e))?;
+					
+					if balance != 0 {
+						let now = Local::now();
+						let tx = NewTx {
+							timestamp: now.naive_local(),
+							month: now.month0() as i32,
+							year: now.year(),
+							account_id: account.id,
+							payee_id: Some(0),
+							transfer_account_id: None,
+							category_id: Some(0),
+							memo: "",
+							amount: balance,
+							cleared: true,
+						};
+
+						diesel::insert_into(schema::txs::table)
+							.values(&tx)
+							.execute(&conn)
+							.map_err(|e| Error::DbError(e))?;
+						
+						load_transactions(component.clone(), selected_account, &conn)?;
+					}
+					
+					load_accounts(component.clone(), &conn)?;
 				},
 				Message::AddCategory(name) => {
-					let category = entities::category::Model {
-						name,
-						..Default::default()
-					};
-					api::category::add(category, &db).await?;
-					load_categories(component.clone(), &db).await?;
+					let category = NewCategory { name: &name, group_id: 0 };
+					diesel::insert_into(schema::categories::table)
+							.values(&category)
+							.execute(&conn)
+							.map_err(|e| Error::DbError(e))?;
+					load_categories(component.clone(), &conn)?;
 				},
 				Message::AddTransaction(account_name, payee_name, category_name, memo, amount) => {
-					let account_match = entities::account::Entity::find()
-						.filter(entities::account::Column::Name.eq(account_name.as_str()))
-						.one(&db).await.map_err(Error::DbError)?.unwrap();
-					let category_match = entities::category::Entity::find()
-						.filter(entities::category::Column::Name.eq(category_name.as_str()))
-						.one(&db).await.map_err(Error::DbError)?.unwrap();
-					let payee_match = entities::payee::Entity::find()
-						.filter(entities::payee::Column::Name.eq(payee_name.as_str()))
-						.one(&db).await.map_err(Error::DbError)?;
-					let payee_match = if let Some(payee_match) = payee_match {
-						payee_match
+					let account = schema::accounts::table
+						.filter(schema::accounts::name.eq(account_name))
+						.first::<Account>(&conn)
+						.map_err(|e| Error::DbError(e))?;
+					let category = schema::categories::table
+						.filter(schema::categories::name.eq(category_name))
+						.first::<Category>(&conn)
+						.map_err(|e| Error::DbError(e))?;
+					let payee: Option<Payee> = schema::payees::table
+						.filter(schema::payees::name.eq(&payee_name))
+						.first(&conn)
+						.optional()
+						.map_err(|e| Error::DbError(e))?;
+					let payee = if let Some(payee) = payee {
+						payee
 					} else {
-						let payee = entities::payee::Model {
-							name: payee_name,
-							..Default::default()
-						};
-						api::payee::add(payee, &db).await?
+						let payee = NewPayee { name: &payee_name };
+						diesel::insert_into(schema::payees::table)
+							.values(&payee)
+							.execute(&conn)
+							.map_err(|e| Error::DbError(e))?;
+						schema::payees::table
+							.filter(schema::payees::name.eq(payee_name))
+							.first(&conn)
+							.map_err(|e| Error::DbError(e))?
 					};
-					let transaction = entities::transaction::Model {
-						account_id: account_match.id,
-						payee_id: Some(payee_match.id),
-						category_id: category_match.id,
-						memo: memo.as_str().to_owned(),
-						amount: amount as i64,
-						..Default::default()
+					let now = Local::now();
+					let tx = NewTx {
+						timestamp: now.naive_local(),
+						month: now.month0() as i32,
+						year: now.year(),
+						account_id: account.id,
+						payee_id: Some(payee.id),
+						transfer_account_id: None,
+						category_id: Some(category.id),
+						memo: &memo,
+						amount,
+						cleared: false,
 					};
-					api::transaction::add(transaction, &db).await?;
 					
-					let mut account = api::account::find_by_id(account_match.id, &db).await?;
-					account.balance += amount as i64;
-					api::account::update(account, &db).await?;
-					load_transactions(component.clone(), selected_account, &db).await?;
-					load_accounts(component.clone(), &db).await?;
+					diesel::insert_into(schema::txs::table)
+						.values(&tx)
+						.execute(&conn)
+						.map_err(|e| Error::DbError(e))?;
+					
+					diesel::update(schema::accounts::table.find(account.id))
+						.set(schema::accounts::balance.eq(account.balance + amount))
+						.execute(&conn)
+						.map_err(|e| Error::DbError(e))?;
+
+					load_transactions(component.clone(), selected_account, &conn)?;
+					load_accounts(component.clone(), &conn)?;
 				},
 				Message::AccountSelected(account_id) => {
 					selected_account = if account_id > 0 { Some(account_id) } else { None };
-					load_transactions(component.clone(), selected_account, &db).await?;
+					load_transactions(component.clone(), selected_account, &conn)?;
 				},
 				Message::Terminate => {
 					break Ok(());
@@ -230,7 +314,7 @@ async fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) -> Res
 		};
 
 		if let Err(err) = result {
-			println!("{:?}", err);
+			eprintln!("{:?}", err);
 		}
 	}
 }

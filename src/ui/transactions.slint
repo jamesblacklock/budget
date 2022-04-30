@@ -1,5 +1,5 @@
-import { ListView, ComboBox, LineEdit, Button } from "sixtyfps_widgets.60";
-import { Table, TableRow, TableCell } from "table.60";
+import { ListView, ComboBox, LineEdit, Button, CheckBox } from "std-widgets.slint";
+import { Table, TableRow, TableCell } from "table.slint";
 
 export struct TransactionView := {
     id: int,
@@ -9,6 +9,7 @@ export struct TransactionView := {
     category: string,
     memo: string,
     amount: float,
+    cleared: bool,
 }
 
 export Transactions := Rectangle {
@@ -85,9 +86,16 @@ export Transactions := Rectangle {
         table := Table {
             column-names: { 
                 if (selected-account < 0) {
-                    ["Date", "Account", "Payee", "Category", "Memo", "Outflow", "Inflow"]
+                    ["Date", "Account", "Payee", "Category", "Memo", "Outflow", "Inflow", "Cleared"]
                 } else {
-                    ["Date", "Payee", "Category", "Memo", "Outflow", "Inflow"]
+                    ["Date", "Payee", "Category", "Memo", "Outflow", "Inflow", "Cleared"]
+                }
+            }
+            column-widths: { 
+                if (selected-account < 0) {
+                    [5, 5, 5, 5, 5, 5, 5, 1]
+                } else {
+                    [5, 5, 5, 5, 5, 5, 1]
                 }
             }
             row-count: transactions.length;
@@ -95,29 +103,41 @@ export Transactions := Rectangle {
                 n: index;
                 TableCell {
                     text: data.timestamp;
+                    horizontal-stretch: 5;
                 }
                 if selected-account < 0: TableCell {
                     text: data.account;
+                    horizontal-stretch: 5;
                 }
                 TableCell {
                     text: data.payee;
+                    horizontal-stretch: 5;
                 }
                 TableCell {
                     text: data.category;
+                    horizontal-stretch: 5;
                 }
                 TableCell {
                     text: data.memo;
+                    horizontal-stretch: 5;
                 }
                 if (data.amount <= 0): TableCell {
-                    text: "$" + -data.amount;
+                    text: "$\{floor(-data.amount)}.\{mod(floor(-data.amount*10), 10)}\{mod(round(-data.amount*100), 10)}";
                     horizontal-alignment: right;
+                    horizontal-stretch: 5;
                 }
                 TableCell {
                     text: "";
+                    horizontal-stretch: 5;
                 }
                 if (data.amount > 0): TableCell {
-                    text: "$" + data.amount;
+                    text: "$\{floor(data.amount)}.\{mod(floor(data.amount*10), 10)}\{mod(round(data.amount*100), 10)}";
                     horizontal-alignment: right;
+                    horizontal-stretch: 5;
+                }
+                TableCell {
+                    horizontal-stretch: 1;
+                    text: data.cleared ? "Y" : "N";
                 }
             }
         }

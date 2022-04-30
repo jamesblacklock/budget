@@ -5,4 +5,4 @@ This is a prototype budgeting application based on the popular budgeting web app
 The project is in no way associated with YNAB; my reasons for building it are:
 1. I love YNAB
 2. I'd like to have a budgeting app that keeps all my data offline
-3. I am using it as a testbed for two pre-alpha Rust libraries, namely 1) `sea-orm` and 2) `sixtyfps`
+3. I am using it as a testbed for the Rust UI library `slint`

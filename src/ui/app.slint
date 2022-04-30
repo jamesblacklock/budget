@@ -1,0 +1,124 @@
+import { Button, LineEdit, ComboBox, CheckBox } from "std-widgets.slint";
+import { Transactions, TransactionView } from "./transactions.slint";
+import { Accounts, AccountView, AccountDialog } from "./accounts.slint";
+import { Budget } from "./budget.slint";
+import { SidebarButton } from "./sidebar.slint";
+
+export App := Window {
+    property<[TransactionView]> transactions: [];
+    property<[AccountView]> accounts: [];
+    property<[string]> account-names: [];
+    property<[string]> categories: [];
+    property<[string]> assignable-categories;
+    property<string> show-view: "budget";
+    property<int> selected-account: -1;
+    property<int> current-month;
+    property<int> current-year;
+    property<float> inflow;
+
+    callback add-tx(string, string, string, string, float);
+    callback add-category(string);
+    callback add-account(string, float, bool);
+    callback account-selected(int);
+
+    callback show-transactions;
+    
+    show-transactions => {
+        if (show-view != "transactions") {
+            transactions = [];
+            show-view = "transactions";
+        }
+    }
+    
+    title: "YBHAFB — You'd Better Have A Fucking Budget";
+
+    min-width: 800px;
+    min-height: 400px;
+    
+    preferred-width: 1200px;
+    preferred-height: 800px;
+
+    HorizontalLayout {
+        Rectangle {
+            background: #07a;
+            horizontal-stretch: 1;
+            VerticalLayout {
+                padding: 4px;
+                padding-top: 14px;
+                padding-bottom: 12px;
+                spacing: 4px;
+                SidebarButton {
+                    text: "Budget";
+                    font-size: 16px;
+                    active: root.show-view == "budget";
+                    clicked => {
+                        root.show-view = "budget";
+                    }
+                }
+                SidebarButton {
+                    text: "Reports";
+                    font-size: 16px;
+                    active: root.show-view == "reports";
+                    clicked => {
+                        root.show-view = "reports";
+                    }
+                }
+                SidebarButton {
+                    text: "All Accounts";
+                    font-size: 16px;
+                    active: root.show-view == "transactions" && root.selected-account == -1;
+                    clicked => {
+                        root.show-transactions();
+                        root.account-selected(-1);
+                        root.selected-account = -1;
+                    }
+                }
+                Accounts {
+                    accounts: root.accounts;
+                    selected-account: root.selected-account;
+                    account-selected(account-id) => {
+                        root.show-transactions();
+                        root.account-selected(account-id);
+                        root.selected-account = account-id;
+                    }
+                    add-account-button-clicked() => {
+                        account-dialog.modal-active = true;
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 7;
+            if root.show-view == "budget": Budget {
+                current-month <=> root.current-month;
+                current-year <=> root.current-year;
+                categories: root.assignable-categories;
+                inflow: root.inflow;
+
+                add-category(name) => {
+                    root.add-category(name);
+                }
+            }
+            if root.show-view == "reports": Rectangle {
+                
+            }
+            if root.show-view == "transactions": Transactions {
+                categories: root.categories;
+                account-names: root.account-names;
+                transactions: root.transactions;
+                selected-account: root.selected-account;
+
+                add-tx(account-name, payee-name, category-name, memo, amount) => {
+                    root.add-tx(account-name, payee-name, category-name, memo, amount);
+                }
+            }
+        }
+    }
+
+    account-dialog := AccountDialog {
+        add-account(name, balance, is_tracking) => {
+            root.add-account(name, balance, is_tracking);
+        }
+    }
+}

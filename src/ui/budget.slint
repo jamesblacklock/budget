@@ -1,0 +1,108 @@
+import { ListView, Button, LineEdit } from "std-widgets.slint";
+import { Table, TableRow, TableCell } from "table.slint";
+
+export Budget := Rectangle {
+    property<[string]> categories: [];
+    property<[string]> months: ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+    property<int> current-month;
+    property<int> current-year;
+    property<float> inflow;
+
+    callback add-category(string);
+    callback month-changed();
+    callback next-month();
+    callback prev-month();
+
+    next-month => {
+        current-month += 1;
+        if (current-month >= 12) {
+            current-month = 0;
+            current-year += 1;
+        }
+        month-changed();
+    }
+    prev-month => {
+        current-month -= 1;
+        if (current-month < 0) {
+            current-month = 11;
+            current-year -= 1;
+        }
+        month-changed();
+    }
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 6px;
+
+        HorizontalLayout {
+            alignment: start;
+            spacing: 4px;
+            Button {
+                text: "<<";
+                clicked => {
+                    root.prev-month();
+                }
+            }
+            Text {
+                font-size: 24px;
+                text: "\{months[current-month]} \{current-year}";
+            }
+            Button {
+                text: ">>";
+                clicked => {
+                    root.next-month();
+                }
+            }
+            Text {
+                text: "Ready to assign: \{(inflow < 0 ? "-$" : "$")}\{floor(abs(inflow))}.\{mod(floor(abs(inflow)*10), 10)}\{mod(round(abs(inflow)*100), 10)}";
+            }
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            spacing: 4px;
+            new-category := LineEdit {
+                placeholder-text: "Category";
+                width: 200px;
+            }
+            Button {
+                text: "Add Category";
+                clicked => {
+                    if (new-category.text != "") {
+                        root.add-category(new-category.text);
+                        new-category.text = "";
+                    }
+                }
+            }
+        }
+        
+        Table {
+            column-names: ["Category", "Assigned", "Activity", "Available"];
+            column-widths: [3, 1, 1, 1];
+
+            row-count: categories.length;
+
+            for category[index] in categories: TableRow {
+                n: index;
+                TableCell {
+                    text: category;
+                    horizontal-stretch: 3;
+                }
+                TableCell {
+                    input: true;
+                    text: "0.00";
+                    placeholder-text: "$0.00";
+                    horizontal-stretch: 1;
+                }
+                TableCell {
+                    text: "$0.00";
+                    horizontal-stretch: 1;
+                }
+                TableCell {
+                    text: "$0.00";
+                    horizontal-stretch: 1;
+                }
+            }
+        }
+    }
+}
