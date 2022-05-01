@@ -1,15 +1,15 @@
 import { Button, LineEdit, ComboBox, CheckBox } from "std-widgets.slint";
 import { Transactions, TransactionView } from "./transactions.slint";
 import { Accounts, AccountView, AccountDialog } from "./accounts.slint";
-import { Budget } from "./budget.slint";
+import { Budget, BudgetCategoryView } from "./budget.slint";
 import { SidebarButton } from "./sidebar.slint";
 
 export App := Window {
     property<[TransactionView]> transactions: [];
     property<[AccountView]> accounts: [];
+    property<[BudgetCategoryView]> budget-categories: [];
     property<[string]> account-names: [];
     property<[string]> categories: [];
-    property<[string]> assignable-categories;
     property<string> show-view: "budget";
     property<int> selected-account: -1;
     property<int> current-month;
@@ -20,6 +20,7 @@ export App := Window {
     callback add-category(string);
     callback add-account(string, float, bool);
     callback account-selected(int);
+    callback month-changed(int, int);
 
     callback show-transactions;
     
@@ -93,11 +94,15 @@ export App := Window {
             if root.show-view == "budget": Budget {
                 current-month <=> root.current-month;
                 current-year <=> root.current-year;
-                categories: root.assignable-categories;
+                budget-categories: root.budget-categories;
                 inflow: root.inflow;
 
                 add-category(name) => {
                     root.add-category(name);
+                }
+
+                month-changed() => {
+                    root.month-changed(root.current-month, root.current-year);
                 }
             }
             if root.show-view == "reports": Rectangle {

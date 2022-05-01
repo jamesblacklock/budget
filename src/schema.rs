@@ -24,6 +24,7 @@ table! {
         id -> Integer,
         group_id -> Integer,
         name -> Text,
+        order -> Integer,
     }
 }
 
@@ -49,6 +50,11 @@ table! {
         cleared -> Bool,
     }
 }
+
+joinable!(budgets -> categories (category_id));
+joinable!(txs -> accounts (account_id));
+joinable!(txs -> categories (category_id));
+joinable!(txs -> payees (payee_id));
 
 allow_tables_to_appear_in_same_query!(
     accounts,

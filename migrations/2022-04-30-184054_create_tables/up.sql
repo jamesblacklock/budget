@@ -19,7 +19,7 @@ CREATE TABLE budgets (
     FOREIGN KEY (
         category_id
     )
-    REFERENCES category (id) 
+    REFERENCES categories (id) 
 );
 
 CREATE TABLE categories (
@@ -27,7 +27,8 @@ CREATE TABLE categories (
                      PRIMARY KEY AUTOINCREMENT,
     group_id INTEGER NOT NULL,
     name     TEXT    NOT NULL
-                     UNIQUE
+                     UNIQUE,
+    "order"  INTEGER NOT NULL
 );
 
 CREATE TABLE payees (
@@ -53,15 +54,16 @@ CREATE TABLE txs (
     FOREIGN KEY (
         account_id
     )
-    REFERENCES account (id),
+    REFERENCES accounts (id),
     FOREIGN KEY (
         category_id
     )
-    REFERENCES category (id),
+    REFERENCES categories (id),
     FOREIGN KEY (
         payee_id
     )
-    REFERENCES payee (id) 
+    REFERENCES payees (id) 
 );
 
-INSERT INTO categories (name, group_id) VALUES ('Unassigned', 0);
+INSERT INTO categories (name, group_id, "order") VALUES ('Unassigned', 0, 0);
+

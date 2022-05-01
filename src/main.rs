@@ -14,11 +14,6 @@ use std::{
 pub mod schema;
 pub mod models;
 
-joinable!(schema::txs -> schema::accounts (account_id));
-joinable!(schema::txs -> schema::payees (payee_id));
-joinable!(schema::txs -> schema::categories (category_id));
-
-
 use models::*;
 use diesel::prelude::*;
 use chrono::prelude::*;
@@ -36,6 +31,7 @@ pub enum Message {
 	AddCategory(String),
 	AddTransaction(String, String, String, String, i32),
 	AccountSelected(i32),
+	MonthChanged(i32, i32),
 	Terminate,
 }
 
@@ -107,6 +103,10 @@ fn main() {
 	component.on_account_selected(move |account_id| {
 		sender_clone.send(Message::AccountSelected(account_id)).unwrap();
 	});
+	let sender_clone = sender.clone();
+	component.on_month_changed(move |month, year| {
+		sender_clone.send(Message::MonthChanged(month, year)).unwrap();
+	});
 
 	let component_weak = component.as_weak();
 	thread::spawn(move || worker_thread(component_weak, receiver));
@@ -133,13 +133,13 @@ fn load_accounts(component: Weak<App>, conn: &SqliteConnection) -> Result<(), Er
 
 fn load_categories(component: Weak<App>, conn: &SqliteConnection) -> Result<(), Error> {
 	let categories = schema::categories::table
+		.order(schema::categories::order)
 		.load::<Category>(conn).map_err(|e| Error::DbError(e))?;
 	
 	component.upgrade_in_event_loop(move |component| {
 		let all_categories = categories.iter()
 			.map(|category| SharedString::from(&category.name)).collect::<Vec<_>>();
 		component.set_categories(VecModel::from_slice(&all_categories));
-		component.set_assignable_categories(VecModel::from_slice(&all_categories[1..]));
 	});
 
 	Ok(())
@@ -171,10 +171,29 @@ fn load_transactions(component: Weak<App>, account_id: Option<i32>, conn: &Sqlit
 	Ok(())
 }
 
-fn load_budget(component: Weak<App>, month: u32, year: i32, _conn: &SqliteConnection) -> Result<(), Error> {
+fn load_budget(component: Weak<App>, month: i32, year: i32, conn: &SqliteConnection) -> Result<(), Error> {
+	use schema::budgets::columns as b;
+	use schema::categories::columns as c;
+	let rows: Vec<_> = schema::categories::table
+		.left_join(schema::budgets::table
+			.on(
+				b::category_id.eq(c::id)
+				.and(b::year.eq(year))
+				.and(b::month.eq(month))
+			)
+		)
+		.order(c::order)
+		.select((c::id, c::name, b::assigned.nullable(), b::activity.nullable(), b::available.nullable()))
+		.load::<BudgetCategoryViewQueryable>(conn)
+		.map_err(|e| Error::DbError(e))?
+		.into_iter()
+		.map(|row| row.into_view())
+		.collect();
+
 	component.upgrade_in_event_loop(move |component| {
 		component.set_current_year(year);
 		component.set_current_month(month as i32);
+		component.set_budget_categories(VecModel::from_slice(&rows[1..]));
 	});
 
 	Ok(())
@@ -187,7 +206,7 @@ fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) -> Result<()
 	load_categories(component.clone(), &conn)?;
 	load_transactions(component.clone(), None, &conn)?;
 	let now = Local::now();
-	load_budget(component.clone(), now.month0(), now.year(), &conn)?;
+	load_budget(component.clone(), now.month0() as i32, now.year(), &conn)?;
 
 	let mut selected_account = None;
 	loop {
@@ -306,6 +325,9 @@ fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) -> Result<()
 				Message::AccountSelected(account_id) => {
 					selected_account = if account_id > 0 { Some(account_id) } else { None };
 					load_transactions(component.clone(), selected_account, &conn)?;
+				},
+				Message::MonthChanged(month, year) => {
+					load_budget(component.clone(), month, year, &conn)?;
 				},
 				Message::Terminate => {
 					break Ok(());

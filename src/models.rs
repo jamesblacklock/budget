@@ -1,7 +1,28 @@
-use crate::{ AccountView, TransactionView };
+use crate::{ AccountView, TransactionView, BudgetCategoryView };
 use slint::SharedString;
 use chrono::NaiveDateTime;
 use crate::schema::{ accounts, categories, payees, txs };
+
+#[derive(Queryable)]
+pub struct BudgetCategoryViewQueryable {
+	category_id: i32,
+	name: String,
+	assigned: Option<i32>,
+	activity: Option<i32>,
+	available: Option<i32>,
+}
+
+impl BudgetCategoryViewQueryable {
+	pub fn into_view(self) -> BudgetCategoryView {
+		BudgetCategoryView {
+			category_id: self.category_id,
+			name: self.name.into(),
+			assigned: self.assigned.unwrap_or_default() as f32 / 100.0,
+			activity: self.activity.unwrap_or_default() as f32 / 100.0,
+			available: self.available.unwrap_or_default() as f32 / 100.0,
+		}
+	}
+}
 
 #[derive(Queryable)]
 pub struct Account {
@@ -45,6 +66,7 @@ pub struct Category {
 	pub id: i32,
 	pub group_id: i32,
 	pub name: String,
+	pub order: i32,
 }
 
 #[derive(Insertable)]

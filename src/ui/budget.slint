@@ -1,12 +1,20 @@
 import { ListView, Button, LineEdit } from "std-widgets.slint";
 import { Table, TableRow, TableCell } from "table.slint";
 
+export struct BudgetCategoryView := {
+    category_id: int,
+    name: string,
+    assigned: float,
+    activity: float,
+    available: float,
+}
+
 export Budget := Rectangle {
-    property<[string]> categories: [];
     property<[string]> months: ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
     property<int> current-month;
     property<int> current-year;
     property<float> inflow;
+    property<[BudgetCategoryView]> budget-categories: [];
 
     callback add-category(string);
     callback month-changed();
@@ -80,26 +88,28 @@ export Budget := Rectangle {
             column-names: ["Category", "Assigned", "Activity", "Available"];
             column-widths: [3, 1, 1, 1];
 
-            row-count: categories.length;
+            row-count: budget-categories.length;
 
-            for category[index] in categories: TableRow {
+            for category[index] in budget-categories: TableRow {
                 n: index;
                 TableCell {
-                    text: category;
+                    text: category.name;
                     horizontal-stretch: 3;
                 }
                 TableCell {
                     input: true;
-                    text: "0.00";
+                    text: category.assigned;
                     placeholder-text: "$0.00";
                     horizontal-stretch: 1;
                 }
                 TableCell {
-                    text: "$0.00";
+                    text: category.activity;
+                    placeholder-text: "$0.00";
                     horizontal-stretch: 1;
                 }
                 TableCell {
-                    text: "$0.00";
+                    text: category.available;
+                    placeholder-text: "$0.00";
                     horizontal-stretch: 1;
                 }
             }
