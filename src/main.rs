@@ -32,6 +32,7 @@ pub enum Message {
 	AddTransaction(String, String, String, String, i32),
 	AccountSelected(i32),
 	MonthChanged(i32, i32),
+	BudgetChanged(i32, i32, i32, String),
 	Terminate,
 }
 
@@ -107,11 +108,45 @@ fn main() {
 	component.on_month_changed(move |month, year| {
 		sender_clone.send(Message::MonthChanged(month, year)).unwrap();
 	});
+	let sender_clone = sender.clone();
+	component.on_budget_changed(move |category_id, month, year, assigned| {
+		sender_clone.send(Message::BudgetChanged(category_id, month, year, assigned.as_str().to_owned())).unwrap();
+	});
 
 	let component_weak = component.as_weak();
 	thread::spawn(move || worker_thread(component_weak, receiver));
 
 	component.run();
+}
+
+fn parse_currency<S: Into<String>>(s: S) -> Option<i32> {
+	let s = s.into();
+	// println!("received: {:?}", s);
+	let mut cleaned = String::new();
+	let mut num = false;
+	let mut sign = 1;
+	let mut point = false;
+	for c in s.chars() {
+		if !num && !point && c == '-' {
+			sign = sign * -1;
+		} else if c >= '0' && c <= '9' {
+			num = true;
+			cleaned.push(c);
+		} else if !point && c == '.' {
+			point = true;
+			cleaned.push('.');
+		}
+	}
+	// println!("parsing: {:?}", cleaned);
+	cleaned.parse::<f32>().and_then(|f| Ok((f * 100.0) as i32 * sign)).ok()
+}
+
+#[test]
+fn parse_currency_test() {
+	assert!(parse_currency("") == None);
+	assert!(parse_currency("--2") == Some(200));
+	assert!(parse_currency("12.") == Some(1200));
+	assert!(parse_currency("-+--a1b-2c3d4.9.8.7") == Some(-123498));
 }
 
 fn load_accounts(component: Weak<App>, conn: &SqliteConnection) -> Result<(), Error> {
@@ -195,6 +230,49 @@ fn load_budget(component: Weak<App>, month: i32, year: i32, conn: &SqliteConnect
 		component.set_current_month(month as i32);
 		component.set_budget_categories(VecModel::from_slice(&rows[1..]));
 	});
+
+	Ok(())
+}
+
+fn update_budget(
+	_component: Weak<App>,
+	category_id: i32,
+	month: i32,
+	year: i32,
+	assigned: i32,
+	conn: &SqliteConnection) -> Result<(), Error> {
+
+	use schema::budgets::columns as b;
+
+	let budget_id = schema::budgets::table.filter(
+			b::category_id.eq(category_id).and(
+			b::month.eq(month)).and(
+			b::year.eq(year))
+		)
+		.select(b::id)
+		.first::<i32>(conn)
+		.optional()
+		.map_err(|e| Error::DbError(e))?;
+	
+	if let Some(id) = budget_id {
+		diesel::update(schema::budgets::table.filter(b::id.eq(id)))
+			.set(b::assigned.eq(assigned))
+			.execute(conn)
+			.map_err(|e| Error::DbError(e))?;
+	} else {
+		let budget = NewBudget {
+			month,
+			year,
+			category_id,
+			assigned,
+			activity: 0,
+			available: 0,
+		};
+		diesel::insert_into(schema::budgets::table)
+			.values(&budget)
+			.execute(conn)
+			.map_err(|e| Error::DbError(e))?;
+	}
 
 	Ok(())
 }
@@ -333,6 +411,11 @@ fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) {
 					load_transactions(component.clone(), selected_account, &conn)?;
 				},
 				Message::MonthChanged(month, year) => {
+					load_budget(component.clone(), month, year, &conn)?;
+				},
+				Message::BudgetChanged(id, month, year, assigned) => {
+					let assigned = parse_currency(assigned).unwrap_or_default();
+					update_budget(component.clone(), id, month, year, assigned, &conn)?;
 					load_budget(component.clone(), month, year, &conn)?;
 				},
 				Message::Terminate => {

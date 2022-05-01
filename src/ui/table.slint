@@ -6,18 +6,15 @@ export TableCell := Rectangle {
     property<string> placeholder-text;
     property<TextHorizontalAlignment> horizontal-alignment: left;
 
-    callback accepted;
-    accepted => {
-        text = "YAY!";
-    }
+    callback accepted(string);
 
     if (input): LineEdit {
         placeholder-text: root.placeholder-text;
         width: 100%;
         height: 100%;
         text <=> root.text;
-        accepted => {
-            root.accepted();
+        accepted(val) => {
+            root.accepted(val);
         }
     }
 

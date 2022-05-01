@@ -1,19 +1,47 @@
 use crate::{ AccountView, TxView, BudgetCategoryView };
-use slint::SharedString;
 use chrono::NaiveDateTime;
-use crate::schema::{ accounts, categories, payees, txs };
+use crate::schema::{ accounts, categories, budgets, payees, txs };
 
-fn dollars(n: Option<i32>) -> SharedString {
-	if let Some(n) = n {
-		format!("{}${:02.2}", if n < 0 {"-"} else {""}, n.abs() as f32 / 100.0).into()
-	} else {
-		SharedString::default()
+struct SharedString;
+
+impl SharedString {
+	fn dollars(n: Option<i32>) -> slint::SharedString {
+		if let Some(n) = n {
+			format!("{}${:02.2}", if n < 0 {"-"} else {""}, n.abs() as f32 / 100.0).into()
+		} else {
+			slint::SharedString::default()
+		}
+	}
+
+	fn nonzero_dollars(n: Option<i32>) -> slint::SharedString {
+		let n = n.unwrap_or_default();
+		if n != 0 {
+			SharedString::dollars(Some(n))
+		} else {
+			slint::SharedString::default()
+		}
+	}
+
+	fn option<S: Into<String>>(s: Option<S>) -> slint::SharedString {
+		if let Some(s) = s {
+			s.into().into()
+		} else {
+			slint::SharedString::default()
+		}
+	}
+
+	fn from(s: &str) -> slint::SharedString {
+		slint::SharedString::from(s)
+	}
+
+	fn timestamp(t: NaiveDateTime) -> slint::SharedString {
+		t.format("%Y-%m-%d").to_string().into()
 	}
 }
 
 #[derive(Queryable)]
 pub struct BudgetCategoryViewQueryable {
-	category_id: i32,
+	id: i32,
 	name: String,
 	assigned: Option<i32>,
 	activity: Option<i32>,
@@ -23,11 +51,11 @@ pub struct BudgetCategoryViewQueryable {
 impl BudgetCategoryViewQueryable {
 	pub fn into_view(self) -> BudgetCategoryView {
 		BudgetCategoryView {
-			category_id: self.category_id,
+			id: self.id,
 			name: self.name.into(),
-			assigned: dollars(self.assigned),
-			activity: dollars(self.activity.or(Some(0))),
-			available: dollars(self.available.or(Some(0))),
+			assigned: SharedString::nonzero_dollars(self.assigned),
+			activity: SharedString::dollars(self.activity.or(Some(0))),
+			available: SharedString::dollars(self.available.or(Some(0))),
 		}
 	}
 }
@@ -61,6 +89,17 @@ pub struct NewAccount<'a> {
 #[derive(Queryable)]
 pub struct Budget {
 	pub id: i32,
+	pub month: i32,
+	pub year: i32,
+	pub category_id: i32,
+	pub assigned: i32,
+	pub activity: i32,
+	pub available: i32,
+}
+
+#[derive(Insertable)]
+#[table_name="budgets"]
+pub struct NewBudget {
 	pub month: i32,
 	pub year: i32,
 	pub category_id: i32,
@@ -119,15 +158,15 @@ impl Tx {
 		payee: Option<Payee>) -> TxView {
 		
 		TxView {
-			account: SharedString::from(account.map(|e| e.name).unwrap_or("".to_owned())),
-			category: SharedString::from(category.map(|e| e.name).unwrap_or("".to_owned())),
-			payee: SharedString::from(payee.map(|e| e.name).unwrap_or("".to_owned())),
-			memo: SharedString::from(&self.memo),
-			timestamp: SharedString::from(self.timestamp.format("%Y-%m-%d").to_string()),
-			inflow: dollars(if self.amount > 0 { Some(self.amount) } else { None }),
-			outflow: dollars(if self.amount < 0 { Some(-self.amount) } else { None }),
-			cleared: self.cleared,
-			id: self.id,
+			id:        self.id,
+			account:   SharedString::option(account.map(|e| e.name)),
+			category:  SharedString::option(category.map(|e| e.name)),
+			payee:     SharedString::option(payee.map(|e| e.name)),
+			memo:      SharedString::from(&self.memo),
+			timestamp: SharedString::timestamp(self.timestamp),
+			inflow:    SharedString::dollars(if self.amount > 0 { Some(self.amount) } else { None }),
+			outflow:   SharedString::dollars(if self.amount < 0 { Some(-self.amount) } else { None }),
+			cleared:   self.cleared,
 		}
 	}
 }

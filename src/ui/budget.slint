@@ -2,7 +2,7 @@ import { ListView, Button, LineEdit } from "std-widgets.slint";
 import { Table, TableRow, TableCell } from "table.slint";
 
 export struct BudgetCategoryView := {
-    category_id: int,
+    id: int,
     name: string,
     assigned: string,
     activity: string,
@@ -17,6 +17,7 @@ export Budget := Rectangle {
     property<[BudgetCategoryView]> budget-categories: [];
 
     callback add-category(string);
+    callback budget-changed(int, string);
     callback month-changed();
     callback next-month();
     callback prev-month();
@@ -101,6 +102,10 @@ export Budget := Rectangle {
                     text: category.assigned;
                     placeholder-text: "$0.00";
                     horizontal-stretch: 1;
+
+                    accepted(val) => {
+                        root.budget-changed(category.id, val)
+                    }
                 }
                 TableCell {
                     text: category.activity;

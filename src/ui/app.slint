@@ -21,6 +21,7 @@ export App := Window {
     callback add-account(string, float, bool);
     callback account-selected(int);
     callback month-changed(int, int);
+    callback budget-changed(int, int, int, string);
 
     callback show-transactions;
     
@@ -103,6 +104,10 @@ export App := Window {
 
                 month-changed() => {
                     root.month-changed(root.current-month, root.current-year);
+                }
+
+                budget-changed(id, assigned) => {
+                    root.budget-changed(id, root.current-month, root.current-year, assigned);
                 }
             }
             if root.show-view == "reports": Rectangle {
