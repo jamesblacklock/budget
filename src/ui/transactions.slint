@@ -1,19 +1,20 @@
 import { ListView, ComboBox, LineEdit, Button, CheckBox } from "std-widgets.slint";
 import { Table, TableRow, TableCell } from "table.slint";
 
-export struct TransactionView := {
+export struct TxView := {
     id: int,
     timestamp: string,
     account: string,
     payee: string,
     category: string,
     memo: string,
-    amount: float,
+    inflow: string,
+    outflow: string,
     cleared: bool,
 }
 
 export Transactions := Rectangle {
-    property<[TransactionView]> transactions: [];
+    property<[TxView]> transactions: [];
     property<int> selected-account: -1;
     property<[string]> account-names: [];
     property<[string]> categories: [];
@@ -121,18 +122,12 @@ export Transactions := Rectangle {
                     text: data.memo;
                     horizontal-stretch: 5;
                 }
-                if (data.amount <= 0): TableCell {
-                    text: "$\{floor(-data.amount)}.\{mod(floor(-data.amount*10), 10)}\{mod(round(-data.amount*100), 10)}";
-                    horizontal-alignment: right;
+                TableCell {
+                    text: data.outflow;
                     horizontal-stretch: 5;
                 }
                 TableCell {
-                    text: "";
-                    horizontal-stretch: 5;
-                }
-                if (data.amount > 0): TableCell {
-                    text: "$\{floor(data.amount)}.\{mod(floor(data.amount*10), 10)}\{mod(round(data.amount*100), 10)}";
-                    horizontal-alignment: right;
+                    text: data.inflow;
                     horizontal-stretch: 5;
                 }
                 TableCell {

@@ -199,14 +199,21 @@ fn load_budget(component: Weak<App>, month: i32, year: i32, conn: &SqliteConnect
 	Ok(())
 }
 
-fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) -> Result<(), Error> {
+fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) {
 	let conn = establish_connection();
 	
-	load_accounts(component.clone(), &conn)?;
-	load_categories(component.clone(), &conn)?;
-	load_transactions(component.clone(), None, &conn)?;
-	let now = Local::now();
-	load_budget(component.clone(), now.month0() as i32, now.year(), &conn)?;
+	let result: Result<(), Error> = try {
+		load_accounts(component.clone(), &conn)?;
+		load_categories(component.clone(), &conn)?;
+		load_transactions(component.clone(), None, &conn)?;
+		let now = Local::now();
+		load_budget(component.clone(), now.month0() as i32, now.year(), &conn)?;
+	};
+
+	if let Err(err) = result {
+		eprintln!("ERROR: {:?}", err);
+		std::process::exit(1);
+	}
 
 	let mut selected_account = None;
 	loop {
@@ -224,7 +231,6 @@ fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) -> Result<()
 						balance,
 					};
 
-					// 
 					diesel::insert_into(schema::accounts::table)
 						.values(&account)
 						.execute(&conn)
@@ -330,13 +336,13 @@ fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) -> Result<()
 					load_budget(component.clone(), month, year, &conn)?;
 				},
 				Message::Terminate => {
-					break Ok(());
+					break;
 				}
 			}
 		};
 
 		if let Err(err) = result {
-			eprintln!("{:?}", err);
+			eprintln!("ERROR: {:?}", err);
 		}
 	}
 }

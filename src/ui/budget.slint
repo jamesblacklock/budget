@@ -4,9 +4,9 @@ import { Table, TableRow, TableCell } from "table.slint";
 export struct BudgetCategoryView := {
     category_id: int,
     name: string,
-    assigned: float,
-    activity: float,
-    available: float,
+    assigned: string,
+    activity: string,
+    available: string,
 }
 
 export Budget := Rectangle {
@@ -104,12 +104,12 @@ export Budget := Rectangle {
                 }
                 TableCell {
                     text: category.activity;
-                    placeholder-text: "$0.00";
+                    horizontal-alignment: right;
                     horizontal-stretch: 1;
                 }
                 TableCell {
                     text: category.available;
-                    placeholder-text: "$0.00";
+                    horizontal-alignment: right;
                     horizontal-stretch: 1;
                 }
             }

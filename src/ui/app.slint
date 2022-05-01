@@ -1,11 +1,11 @@
 import { Button, LineEdit, ComboBox, CheckBox } from "std-widgets.slint";
-import { Transactions, TransactionView } from "./transactions.slint";
+import { Transactions, TxView } from "./transactions.slint";
 import { Accounts, AccountView, AccountDialog } from "./accounts.slint";
 import { Budget, BudgetCategoryView } from "./budget.slint";
 import { SidebarButton } from "./sidebar.slint";
 
 export App := Window {
-    property<[TransactionView]> transactions: [];
+    property<[TxView]> transactions: [];
     property<[AccountView]> accounts: [];
     property<[BudgetCategoryView]> budget-categories: [];
     property<[string]> account-names: [];

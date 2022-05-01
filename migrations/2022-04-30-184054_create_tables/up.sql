@@ -65,5 +65,6 @@ CREATE TABLE txs (
     REFERENCES payees (id) 
 );
 
+INSERT INTO payees (name) VALUES ('Starting Balance');
 INSERT INTO categories (name, group_id, "order") VALUES ('Unassigned', 0, 0);
 

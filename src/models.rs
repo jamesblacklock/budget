@@ -1,7 +1,15 @@
-use crate::{ AccountView, TransactionView, BudgetCategoryView };
+use crate::{ AccountView, TxView, BudgetCategoryView };
 use slint::SharedString;
 use chrono::NaiveDateTime;
 use crate::schema::{ accounts, categories, payees, txs };
+
+fn dollars(n: Option<i32>) -> SharedString {
+	if let Some(n) = n {
+		format!("{}${:02.2}", if n < 0 {"-"} else {""}, n.abs() as f32 / 100.0).into()
+	} else {
+		SharedString::default()
+	}
+}
 
 #[derive(Queryable)]
 pub struct BudgetCategoryViewQueryable {
@@ -17,9 +25,9 @@ impl BudgetCategoryViewQueryable {
 		BudgetCategoryView {
 			category_id: self.category_id,
 			name: self.name.into(),
-			assigned: self.assigned.unwrap_or_default() as f32 / 100.0,
-			activity: self.activity.unwrap_or_default() as f32 / 100.0,
-			available: self.available.unwrap_or_default() as f32 / 100.0,
+			assigned: dollars(self.assigned),
+			activity: dollars(self.activity.or(Some(0))),
+			available: dollars(self.available.or(Some(0))),
 		}
 	}
 }
@@ -105,18 +113,19 @@ pub struct Tx {
 
 impl Tx {
 	pub fn create_view(
-		&self, 
-		account: Option<Account>, 
-		category: Option<Category>, 
-		payee: Option<Payee>) -> TransactionView {
+		&self,
+		account: Option<Account>,
+		category: Option<Category>,
+		payee: Option<Payee>) -> TxView {
 		
-		TransactionView {
+		TxView {
 			account: SharedString::from(account.map(|e| e.name).unwrap_or("".to_owned())),
 			category: SharedString::from(category.map(|e| e.name).unwrap_or("".to_owned())),
 			payee: SharedString::from(payee.map(|e| e.name).unwrap_or("".to_owned())),
 			memo: SharedString::from(&self.memo),
 			timestamp: SharedString::from(self.timestamp.format("%Y-%m-%d").to_string()),
-			amount: self.amount as f32 / 100.0,
+			inflow: dollars(if self.amount > 0 { Some(self.amount) } else { None }),
+			outflow: dollars(if self.amount < 0 { Some(-self.amount) } else { None }),
 			cleared: self.cleared,
 			id: self.id,
 		}
