@@ -13,7 +13,7 @@ export Budget := Rectangle {
     property<[string]> months: ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
     property<int> current-month;
     property<int> current-year;
-    property<float> inflow;
+    property<string> inflow;
     property<[BudgetCategoryView]> budget-categories: [];
 
     callback add-category(string);
@@ -63,7 +63,7 @@ export Budget := Rectangle {
                 }
             }
             Text {
-                text: "Ready to assign: \{(inflow < 0 ? "-$" : "$")}\{floor(abs(inflow))}.\{mod(floor(abs(inflow)*10), 10)}\{mod(round(abs(inflow)*100), 10)}";
+                text: "Ready to assign: \{inflow}";
             }
         }
 

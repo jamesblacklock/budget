@@ -55,8 +55,8 @@ pub enum Message {
 slint::include_modules!();
 use slint::{
 	VecModel,
-	SharedString,
 	Weak,
+	Model,
 };
 
 use diesel::sqlite::SqliteConnection;
@@ -138,7 +138,7 @@ fn parse_currency<S: Into<String>>(s: S) -> Option<i32> {
 		}
 	}
 	// println!("parsing: {:?}", cleaned);
-	cleaned.parse::<f32>().and_then(|f| Ok((f * 100.0) as i32 * sign)).ok()
+	cleaned.parse::<f32>().and_then(|f| Ok((f * 100.0).round() as i32 * sign)).ok()
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn load_accounts(component: Weak<App>, conn: &SqliteConnection) -> Result<(), Er
 		}
 		component.set_accounts(VecModel::from_slice(&account_views));
 		component.set_account_names(VecModel::from_slice(&accounts.iter()
-			.map(|account| SharedString::from(&account.name)).collect::<Vec<_>>()));
+			.map(|account| shared_string::from(&account.name)).collect::<Vec<_>>()));
 	});
 
 	Ok(())
@@ -173,7 +173,7 @@ fn load_categories(component: Weak<App>, conn: &SqliteConnection) -> Result<(), 
 	
 	component.upgrade_in_event_loop(move |component| {
 		let all_categories = categories.iter()
-			.map(|category| SharedString::from(&category.name)).collect::<Vec<_>>();
+			.map(|category| shared_string::from(&category.name)).collect::<Vec<_>>();
 		component.set_categories(VecModel::from_slice(&all_categories));
 	});
 
@@ -206,7 +206,7 @@ fn load_transactions(component: Weak<App>, account_id: Option<i32>, conn: &Sqlit
 	Ok(())
 }
 
-fn load_budget(component: Weak<App>, month: i32, year: i32, conn: &SqliteConnection) -> Result<(), Error> {
+fn load_budget_view(component: Weak<App>, month: i32, year: i32, conn: &SqliteConnection) -> Result<(), Error> {
 	use schema::budgets::columns as b;
 	use schema::categories::columns as c;
 	let rows: Vec<_> = schema::categories::table
@@ -228,51 +228,95 @@ fn load_budget(component: Weak<App>, month: i32, year: i32, conn: &SqliteConnect
 	component.upgrade_in_event_loop(move |component| {
 		component.set_current_year(year);
 		component.set_current_month(month as i32);
+		component.set_inflow(rows[0].available.clone());
 		component.set_budget_categories(VecModel::from_slice(&rows[1..]));
 	});
 
 	Ok(())
 }
 
+fn find_budget(category_id: i32, month: i32, year: i32, conn: &SqliteConnection) -> Result<Option<Budget>, Error> {
+	use schema::budgets::columns as b;
+	
+	schema::budgets::table.filter(
+		b::category_id.eq(category_id).and(
+		b::month.eq(month)).and(
+		b::year.eq(year))
+	)
+	.first::<Budget>(conn)
+	.optional()
+	.map_err(|e| Error::DbError(e))
+}
+
 fn update_budget(
-	_component: Weak<App>,
+	component: Weak<App>,
 	category_id: i32,
 	month: i32,
 	year: i32,
-	assigned: i32,
+	amount: i32,
+	move_from_category: Option<i32>,
 	conn: &SqliteConnection) -> Result<(), Error> {
 
 	use schema::budgets::columns as b;
 
-	let budget_id = schema::budgets::table.filter(
-			b::category_id.eq(category_id).and(
-			b::month.eq(month)).and(
-			b::year.eq(year))
-		)
-		.select(b::id)
-		.first::<i32>(conn)
-		.optional()
-		.map_err(|e| Error::DbError(e))?;
-	
-	if let Some(id) = budget_id {
-		diesel::update(schema::budgets::table.filter(b::id.eq(id)))
-			.set(b::assigned.eq(assigned))
+	let budget = find_budget(category_id, month, year, conn)?;
+	let mut originally_assigned = 0;
+
+	if let Some(Budget { id, assigned, .. }) = budget {
+		originally_assigned = assigned;
+		if move_from_category.is_none() {
+			diesel::update(schema::budgets::table.filter(b::id.eq(id)))
+			.set((b::activity.eq(b::activity + amount), b::available.eq(b::available + amount)))
 			.execute(conn)
 			.map_err(|e| Error::DbError(e))?;
+		} else {
+			diesel::update(schema::budgets::table.filter(b::id.eq(id)))
+			.set((b::assigned.eq(amount), b::available.eq(b::available - b::assigned + amount)))
+			.execute(conn)
+			.map_err(|e| Error::DbError(e))?;
+		}
 	} else {
 		let budget = NewBudget {
 			month,
 			year,
 			category_id,
-			assigned,
-			activity: 0,
-			available: 0,
+			assigned: if move_from_category.is_none() {0} else {amount},
+			activity: if move_from_category.is_none() {amount} else {0},
+			available: amount,
 		};
 		diesel::insert_into(schema::budgets::table)
 			.values(&budget)
 			.execute(conn)
 			.map_err(|e| Error::DbError(e))?;
 	}
+
+	if let Some(other_category) = move_from_category {
+		update_budget(component.clone(), other_category, month, year, originally_assigned - amount, None, conn)?;
+	}
+
+	let budget = find_budget(category_id, month, year, conn)?.unwrap();
+
+	component.upgrade_in_event_loop(move |component| {
+		let budget_view = (
+			component.get_current_month(),
+			component.get_current_year()
+		);
+
+		if budget_view == (month, year) {
+			if budget.category_id == 1 {
+				component.set_inflow(shared_string::dollars(Some(budget.available)));
+			} else {
+				let model = component.get_budget_categories();
+				for i in 0..model.row_count() {
+					let row = model.row_data(i).unwrap();
+					if row.id == budget.category_id {
+						model.set_row_data(i, budget.update_view(row));
+						break;
+					}
+				}
+			}
+		}
+	});
 
 	Ok(())
 }
@@ -285,7 +329,7 @@ fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) {
 		load_categories(component.clone(), &conn)?;
 		load_transactions(component.clone(), None, &conn)?;
 		let now = Local::now();
-		load_budget(component.clone(), now.month0() as i32, now.year(), &conn)?;
+		load_budget_view(component.clone(), now.month0() as i32, now.year(), &conn)?;
 	};
 
 	if let Err(err) = result {
@@ -392,7 +436,9 @@ fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) {
 						amount,
 						cleared: false,
 					};
-					
+
+					update_budget(component.clone(), category.id, tx.month, tx.year, amount, None, &conn)?;
+
 					diesel::insert_into(schema::txs::table)
 						.values(&tx)
 						.execute(&conn)
@@ -411,12 +457,11 @@ fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) {
 					load_transactions(component.clone(), selected_account, &conn)?;
 				},
 				Message::MonthChanged(month, year) => {
-					load_budget(component.clone(), month, year, &conn)?;
+					load_budget_view(component.clone(), month, year, &conn)?;
 				},
 				Message::BudgetChanged(id, month, year, assigned) => {
 					let assigned = parse_currency(assigned).unwrap_or_default();
-					update_budget(component.clone(), id, month, year, assigned, &conn)?;
-					load_budget(component.clone(), month, year, &conn)?;
+					update_budget(component.clone(), id, month, year, assigned, Some(1), &conn)?;
 				},
 				Message::Terminate => {
 					break;

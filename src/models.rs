@@ -2,10 +2,10 @@ use crate::{ AccountView, TxView, BudgetCategoryView };
 use chrono::NaiveDateTime;
 use crate::schema::{ accounts, categories, budgets, payees, txs };
 
-struct SharedString;
+pub struct SharedString;
 
-impl SharedString {
-	fn dollars(n: Option<i32>) -> slint::SharedString {
+pub mod shared_string {
+	pub fn dollars(n: Option<i32>) -> slint::SharedString {
 		if let Some(n) = n {
 			format!("{}${:02.2}", if n < 0 {"-"} else {""}, n.abs() as f32 / 100.0).into()
 		} else {
@@ -13,16 +13,16 @@ impl SharedString {
 		}
 	}
 
-	fn nonzero_dollars(n: Option<i32>) -> slint::SharedString {
+	pub fn nonzero_dollars(n: Option<i32>) -> slint::SharedString {
 		let n = n.unwrap_or_default();
 		if n != 0 {
-			SharedString::dollars(Some(n))
+			dollars(Some(n))
 		} else {
 			slint::SharedString::default()
 		}
 	}
 
-	fn option<S: Into<String>>(s: Option<S>) -> slint::SharedString {
+	pub fn option<S: Into<String>>(s: Option<S>) -> slint::SharedString {
 		if let Some(s) = s {
 			s.into().into()
 		} else {
@@ -30,11 +30,11 @@ impl SharedString {
 		}
 	}
 
-	fn from(s: &str) -> slint::SharedString {
+	pub fn from(s: &str) -> slint::SharedString {
 		slint::SharedString::from(s)
 	}
 
-	fn timestamp(t: NaiveDateTime) -> slint::SharedString {
+	pub fn timestamp(t: chrono::NaiveDateTime) -> slint::SharedString {
 		t.format("%Y-%m-%d").to_string().into()
 	}
 }
@@ -53,9 +53,9 @@ impl BudgetCategoryViewQueryable {
 		BudgetCategoryView {
 			id: self.id,
 			name: self.name.into(),
-			assigned: SharedString::nonzero_dollars(self.assigned),
-			activity: SharedString::dollars(self.activity.or(Some(0))),
-			available: SharedString::dollars(self.available.or(Some(0))),
+			assigned: shared_string::nonzero_dollars(self.assigned),
+			activity: shared_string::dollars(self.activity.or(Some(0))),
+			available: shared_string::dollars(self.available.or(Some(0))),
 		}
 	}
 }
@@ -72,7 +72,7 @@ impl Account {
 	pub fn create_view(&self) -> AccountView {
 		AccountView {
 			id: self.id,
-			name: SharedString::from(self.name.as_str()),
+			name: shared_string::from(self.name.as_str()),
 			balance: self.balance as f32 / 100.0,
 		}
 	}
@@ -95,6 +95,17 @@ pub struct Budget {
 	pub assigned: i32,
 	pub activity: i32,
 	pub available: i32,
+}
+
+impl Budget {
+	pub fn update_view(&self, view: BudgetCategoryView) -> BudgetCategoryView {
+		BudgetCategoryView {
+			assigned: shared_string::nonzero_dollars(Some(self.assigned)),
+			activity: shared_string::dollars(Some(self.activity)),
+			available: shared_string::dollars(Some(self.available)),
+			..view
+		}
+	}
 }
 
 #[derive(Insertable)]
@@ -159,13 +170,13 @@ impl Tx {
 		
 		TxView {
 			id:        self.id,
-			account:   SharedString::option(account.map(|e| e.name)),
-			category:  SharedString::option(category.map(|e| e.name)),
-			payee:     SharedString::option(payee.map(|e| e.name)),
-			memo:      SharedString::from(&self.memo),
-			timestamp: SharedString::timestamp(self.timestamp),
-			inflow:    SharedString::dollars(if self.amount > 0 { Some(self.amount) } else { None }),
-			outflow:   SharedString::dollars(if self.amount < 0 { Some(-self.amount) } else { None }),
+			account:   shared_string::option(account.map(|e| e.name)),
+			category:  shared_string::option(category.map(|e| e.name)),
+			payee:     shared_string::option(payee.map(|e| e.name)),
+			memo:      shared_string::from(&self.memo),
+			timestamp: shared_string::timestamp(self.timestamp),
+			inflow:    shared_string::dollars(if self.amount > 0 { Some(self.amount) } else { None }),
+			outflow:   shared_string::dollars(if self.amount < 0 { Some(-self.amount) } else { None }),
 			cleared:   self.cleared,
 		}
 	}

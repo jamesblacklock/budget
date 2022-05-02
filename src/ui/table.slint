@@ -2,30 +2,50 @@ import { ScrollView, LineEdit } from "std-widgets.slint";
 
 export TableCell := Rectangle {
     property<bool> input;
+    property<bool> active;
     property<string> text;
     property<string> placeholder-text;
     property<TextHorizontalAlignment> horizontal-alignment: left;
 
     callback accepted(string);
 
-    if (input): LineEdit {
+    forward-focus: edit;
+
+    edit := LineEdit {
+        visible: edit.has-focus ? active : false;
         placeholder-text: root.placeholder-text;
         width: 100%;
         height: 100%;
-        text <=> root.text;
         accepted(val) => {
             root.accepted(val);
+            active = false;
         }
     }
 
-    if (!input): Text {
+    touch-area := TouchArea {
+        enabled: input;
+        clicked => {
+            edit.text = root.text;
+            edit.focus();
+            active = true;
+        }
+    }
+
+    text := Text {
+        visible: !edit.visible;
         preferred-width: 0;
         width: root.width - 12px;
-        x: 6px;
+        x: input ? 8px : 6px;
         vertical-alignment: center;
         horizontal-alignment: root.horizontal-alignment;
         height: 100%;
-        text: root.text;
+        text: {
+            if (input && root.text == "") {
+                root.placeholder-text
+            } else {
+                root.text
+            }
+        }
         overflow: elide;
     }
 }

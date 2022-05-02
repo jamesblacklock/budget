@@ -66,5 +66,5 @@ CREATE TABLE txs (
 );
 
 INSERT INTO payees (name) VALUES ('Starting Balance');
-INSERT INTO categories (name, group_id, "order") VALUES ('Unassigned', 0, 0);
+INSERT INTO categories (name, group_id, "order") VALUES ('Inflow', 0, 0);
 
