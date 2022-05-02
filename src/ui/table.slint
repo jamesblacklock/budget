@@ -9,6 +9,10 @@ export TableCell := Rectangle {
 
     callback accepted(string);
 
+    accepted(val) => {
+        root.text = val;
+    }
+
     forward-focus: edit;
 
     edit := LineEdit {
@@ -44,6 +48,13 @@ export TableCell := Rectangle {
                 root.placeholder-text
             } else {
                 root.text
+            }
+        }
+        opacity: {
+            if (input && root.text == "") {
+                0.5
+            } else {
+                1
             }
         }
         overflow: elide;

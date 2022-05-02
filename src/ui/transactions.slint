@@ -18,6 +18,7 @@ export Transactions := Rectangle {
     property<int> selected-account: -1;
     property<[string]> account-names: [];
     property<[string]> categories: [];
+    property<bool> adding-tx;
 
     callback select-account(int);
     callback add-tx(string, string, string, string, float);
@@ -34,52 +35,22 @@ export Transactions := Rectangle {
     VerticalLayout {
         padding: 12px;
         
+        //     account := ComboBox {
+        //         model: account-names;    
+        //     }
+        //     payee := LineEdit {
+        //         placeholder-text: "Payee";
+        //     }
+        //     category := ComboBox {
+        //         model: categories;    
+        //     }
         HorizontalLayout {
-            spacing: 4px;
-            Text {
-                text: "Account:";
-                vertical-alignment: TextVerticalAlignment.center;
-            }
-            account := ComboBox {
-                model: account-names;    
-            }
-            payee := LineEdit {
-                placeholder-text: "Payee";
-            }
-            Text {
-                text: "Category:";
-                vertical-alignment: TextVerticalAlignment.center;
-            }
-            category := ComboBox {
-                model: categories;    
-            }
-            memo := LineEdit {
-                placeholder-text: "Memo";
-            }
-            outflow := LineEdit {
-                placeholder-text: "Outflow";
-            }
-            inflow := LineEdit {
-                placeholder-text: "Inflow";
-            }
-        }
-        HorizontalLayout {
-            alignment: center;
+            alignment: start;
             Button {
-                text: "Add transaction";
+                height: 20px;
+                text: "Add Transaction";
                 clicked => {
-                    root.add-tx(
-                        account.current-value,
-                        payee.text,
-                        category.current-value,
-                        memo.text,
-                        (inflow.text.to-float() - outflow.text.to-float()) * 100);
-                    account.current-value = "";
-                    payee.text = "";
-                    category.current-value = "";
-                    memo.text = "";
-                    outflow.text = "";
-                    inflow.text = "";
+                    adding-tx = true;
                 }
             }
         }
@@ -87,9 +58,9 @@ export Transactions := Rectangle {
         table := Table {
             column-names: { 
                 if (selected-account < 0) {
-                    ["Date", "Account", "Payee", "Category", "Memo", "Outflow", "Inflow", "Cleared"]
+                    ["DATE", "ACCOUNT", "PAYEE", "CATEGORY", "MEMO", "OUTFLOW", "INFLOW", "CLEARED"]
                 } else {
-                    ["Date", "Payee", "Category", "Memo", "Outflow", "Inflow", "Cleared"]
+                    ["DATE", "PAYEE", "CATEGORY", "MEMO", "OUTFLOW", "INFLOW", "CLEARED"]
                 }
             }
             column-widths: { 
@@ -99,6 +70,96 @@ export Transactions := Rectangle {
                     [5, 5, 5, 5, 5, 5, 1]
                 }
             }
+
+            if (adding-tx): adding-row := Rectangle {
+                property<string> account-name;
+                
+                background: #d8e9f6;
+
+                VerticalLayout {
+                    TableRow {
+                        background: transparent;
+
+                        TableCell {
+                            input: true;
+                            placeholder-text: "date";
+                            horizontal-stretch: 5;
+                        }
+
+                        if (selected-account < 0): TableCell {
+                            text <=> adding-row.account-name;
+                            input: true;
+                            placeholder-text: "account";
+                            horizontal-stretch: 5;
+                        }
+                        payee := TableCell {
+                            input: true;
+                            placeholder-text: "payee";
+                            horizontal-stretch: 5;
+                        }
+                        category := TableCell {
+                            input: true;
+                            placeholder-text: "category";
+                            horizontal-stretch: 5;
+                        }
+                        memo := TableCell {
+                            input: true;
+                            placeholder-text: "memo";
+                            horizontal-stretch: 5;
+                        }
+                        outflow := TableCell {
+                            input: true;
+                            placeholder-text: "outflow";
+                            horizontal-stretch: 5;
+                        }
+                        inflow := TableCell {
+                            input: true;
+                            placeholder-text: "inflow";
+                            horizontal-stretch: 5;
+                        }
+                        TableCell {
+                            horizontal-stretch: 1;
+                            text: "N";
+                        }
+                    }
+                    HorizontalLayout {
+                        alignment: end;
+                        padding: 6px;
+                        spacing: 6px;
+                        Button {
+                            text: "Cancel";
+                            height: 24px;
+                            clicked => {
+                                adding-tx = false;
+                                payee.text = "";
+                                category.text = "";
+                                memo.text = "";
+                                outflow.text = "";
+                                inflow.text = "";
+                            }
+                        }
+                        Button {
+                            text: "Save";
+                            height: 24px;
+                            clicked => {
+                                root.add-tx(
+                                    selected-account < 0 ? account-name : account-names[selected-account - 1],
+                                    payee.text,
+                                    category.text,
+                                    memo.text,
+                                    (inflow.text.to-float() - outflow.text.to-float()) * 100);
+                                adding-tx = false;
+                                payee.text = "";
+                                category.text = "";
+                                memo.text = "";
+                                outflow.text = "";
+                                inflow.text = "";
+                            }
+                        }
+                    }
+                }
+            }
+
             row-count: transactions.length;
             for data[index] in transactions: TableRow {
                 n: index;
