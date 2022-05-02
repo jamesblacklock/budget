@@ -184,7 +184,8 @@ fn load_transactions(component: Weak<App>, account_id: Option<i32>, conn: &Sqlit
 	let query = schema::txs::table
 		.left_join(schema::accounts::table)
 		.left_join(schema::categories::table)
-		.left_join(schema::payees::table);
+		.left_join(schema::payees::table)
+		.order(schema::txs::timestamp.desc());
 	
 	let txs = if let Some(account_id) = account_id {
 		query
@@ -364,7 +365,7 @@ fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) {
 						.map_err(|e| Error::DbError(e))?;
 					
 					if balance != 0 {
-						let now = Local::now();
+						let now = Utc::now();
 						let tx = NewTx {
 							timestamp: now.naive_local(),
 							month: now.month0() as i32,
@@ -423,7 +424,7 @@ fn worker_thread(component: Weak<App>, receiver: Receiver<Message>) {
 							.first(&conn)
 							.map_err(|e| Error::DbError(e))?
 					};
-					let now = Local::now();
+					let now = Utc::now();
 					let tx = NewTx {
 						timestamp: now.naive_local(),
 						month: now.month0() as i32,

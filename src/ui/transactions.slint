@@ -35,15 +35,6 @@ export Transactions := Rectangle {
     VerticalLayout {
         padding: 12px;
         
-        //     account := ComboBox {
-        //         model: account-names;    
-        //     }
-        //     payee := LineEdit {
-        //         placeholder-text: "Payee";
-        //     }
-        //     category := ComboBox {
-        //         model: categories;    
-        //     }
         HorizontalLayout {
             alignment: start;
             Button {
@@ -58,9 +49,9 @@ export Transactions := Rectangle {
         table := Table {
             column-names: { 
                 if (selected-account < 0) {
-                    ["DATE", "ACCOUNT", "PAYEE", "CATEGORY", "MEMO", "OUTFLOW", "INFLOW", "CLEARED"]
+                    ["DATE", "ACCOUNT", "PAYEE", "CATEGORY", "MEMO", "OUTFLOW", "INFLOW", ""]
                 } else {
-                    ["DATE", "PAYEE", "CATEGORY", "MEMO", "OUTFLOW", "INFLOW", "CLEARED"]
+                    ["DATE", "PAYEE", "CATEGORY", "MEMO", "OUTFLOW", "INFLOW", ""]
                 }
             }
             column-widths: { 
@@ -88,7 +79,8 @@ export Transactions := Rectangle {
 
                         if (selected-account < 0): TableCell {
                             text <=> adding-row.account-name;
-                            input: true;
+                            combo: true;
+                            model: account-names;
                             placeholder-text: "account";
                             horizontal-stretch: 5;
                         }
@@ -98,7 +90,8 @@ export Transactions := Rectangle {
                             horizontal-stretch: 5;
                         }
                         category := TableCell {
-                            input: true;
+                            combo: true;
+                            model: categories;
                             placeholder-text: "category";
                             horizontal-stretch: 5;
                         }
@@ -119,7 +112,12 @@ export Transactions := Rectangle {
                         }
                         TableCell {
                             horizontal-stretch: 1;
-                            text: "N";
+                            Image {
+                                width: 12px;
+                                height: 12px;
+                                x: 6px; y: 8px;
+                                source: @image-url("./cleared_symbol_small.png");
+                            }
                         }
                     }
                     HorizontalLayout {
@@ -193,7 +191,18 @@ export Transactions := Rectangle {
                 }
                 TableCell {
                     horizontal-stretch: 1;
-                    text: data.cleared ? "Y" : "N";
+                    Image {
+                        width: 12px;
+                        height: 12px;
+                        x: 7px; y: 9px;
+                        source: {
+                            if (data.cleared) {
+                                @image-url("./cleared_on_small.png")
+                            } else {
+                                @image-url("./cleared_off_small.png")
+                            }
+                        }
+                    }
                 }
             }
         }
