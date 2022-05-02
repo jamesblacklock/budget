@@ -1,11 +1,8 @@
 [package]
 name = "budget"
-author = "James Blacklock <jamesblacklock@protonmail.com>"
+authors = ["James Blacklock <jamesblacklock@protonmail.com>"]
 version = "0.1.0"
 edition = "2021"
-
-# for sixtyfps
-# resolver = "2" # avoid dependency conflicts on some platforms
 
 [dependencies]
 chrono = "^0.4"
